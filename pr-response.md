@@ -118,49 +118,35 @@ For the default endpoint behavior, I believe recency is more useful than title o
 
 **What conflicted:**
 
-The rebase onto the updated `main` branch introduced a conflict because the main branch migrated film IDs from integers to UUID strings, while the watchlist branch was created before that refactor.
+The conflict occurred because the `feature/watchlist` branch was created before the main branch migrated film IDs from integers to UUID strings. During the rebase, `models.py` from main contained the updated UUID-based `Film` model, while the watchlist branch still depended on its own `WatchlistEntry` model and watchlist relationships.
 
-The watchlist implementation still referenced integer film IDs in the `WatchlistEntry` model and in related documentation.
+I also encountered conflicts in `.gitignore` because both branches added overlapping Python, virtual environment, database, and macOS ignore rules.
 
 **How I resolved it:**
 
-> Complete this section immediately after performing the rebase.
-
-I rebased the feature branch using:
+I fetched the latest changes and rebased the feature branch onto `origin/main`:
 
 ```bash
 git fetch origin
 git rebase origin/main
 ```
 
-During conflict resolution, I kept the UUID-based `Film` model from the updated main branch and updated `WatchlistEntry.film_id` to use a UUID-compatible string column:
+For `.gitignore`, I removed the conflict markers and kept one combined list containing the Python environment, database, cache, and `.DS_Store` rules.
 
-```python
-film_id = db.Column(
-    db.String(36),
-    db.ForeignKey("film.id"),
-    nullable=False,
-)
-```
+After the rebase completed, I found that the `WatchlistEntry` relationship remained in `models.py`, but the actual `WatchlistEntry` class was missing. I restored the model using the UUID structure from the updated main branch. Specifically, `WatchlistEntry.film_id` now uses `db.String(36)` and references the UUID-based `film.id`.
 
-I also updated remaining watchlist docstrings and endpoint documentation so they describe `film_id` as a UUID rather than an integer.
-
-After resolving the files, I staged them and continued the rebase:
-
-```bash
-git add models.py services/watchlist_service.py routes/watchlist/watchlist.py
-git rebase --continue
-```
+I also kept the relationships from `User` and `Film` to `WatchlistEntry`, and added a unique constraint on `user_id` and `film_id` to prevent duplicate watchlist records at the database level.
 
 **How I verified no conflict remains:**
 
-> Update this section with your actual command output after the rebase.
-
-I ran the complete test suite:
+I ran the watchlist tests and the full test suite:
 
 ```bash
+pytest tests/test_watchlist.py -v
 pytest tests/ -v
 ```
+
+All tests passed after restoring the UUID-based watchlist model.
 
 I confirmed that the working tree was clean:
 
@@ -168,17 +154,20 @@ I confirmed that the working tree was clean:
 git status
 ```
 
-I confirmed that the branch contains no merge commits:
+Git reported:
+
+```text
+nothing to commit, working tree clean
+```
+
+I also checked for merge commits:
 
 ```bash
 git log --merges origin/main..HEAD
 ```
 
-The command returned no commits. I also reviewed the branch history with:
+The command returned no output, confirming that the branch has a linear rebased history with no merge commits.
 
-```bash
-git log --oneline --graph origin/main..HEAD
-```
 
 ## Git History Screenshot
 
